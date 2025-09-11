@@ -32,7 +32,7 @@ class LayoutElements(TextRegions):
     element_class_id_map: dict[int, str] = field(default_factory=dict)
     text_as_html: np.ndarray = field(default_factory=lambda: np.array([]))
     table_as_cells: np.ndarray = field(default_factory=lambda: np.array([]))
-
+    ocr_texts: np.ndarray = field(default_factory=lambda: np.array([]))
     def __post_init__(self):
         element_size = self.element_coords.shape[0]
         # NOTE: maybe we should create an attribute _optional_attributes: list[str] to store this
@@ -43,6 +43,7 @@ class LayoutElements(TextRegions):
             "texts",
             "text_as_html",
             "table_as_cells",
+            "ocr_texts",
         ):
             if getattr(self, attr).size == 0 and element_size:
                 setattr(self, attr, np.array([None] * element_size))
@@ -64,6 +65,7 @@ class LayoutElements(TextRegions):
         return (
             np.array_equal(self.element_coords, other.element_coords)
             and np.array_equal(self.texts, other.texts)
+            and np.array_equal(self.ocr_texts, other.ocr_texts)
             and np.array_equal(mask, other_mask)
             and np.array_equal(self.element_probs[mask], other.element_probs[mask])
             and (
@@ -83,6 +85,7 @@ class LayoutElements(TextRegions):
         return LayoutElements(
             element_coords=self.element_coords[indices],
             texts=self.texts[indices],
+            ocr_texts= self.ocr_texts[indices],
             sources=self.sources[indices],
             element_probs=self.element_probs[indices],
             element_class_ids=self.element_class_ids[indices],
@@ -94,12 +97,13 @@ class LayoutElements(TextRegions):
     @classmethod
     def concatenate(cls, groups: Iterable[LayoutElements]) -> LayoutElements:
         """concatenate a sequence of LayoutElements in order as one LayoutElements"""
-        coords, texts, probs, class_ids, sources = [], [], [], [], []
+        coords, texts, ocr_texts, probs, class_ids, sources = [], [], [], [], [], []
         text_as_html, table_as_cells = [], []
         class_id_reverse_map: dict[str, int] = {}
         for group in groups:
             coords.append(group.element_coords)
             texts.append(group.texts)
+            ocr_texts.append(group.ocr_texts)
             probs.append(group.element_probs)
             sources.append(group.sources)
             text_as_html.append(group.text_as_html)
@@ -119,6 +123,7 @@ class LayoutElements(TextRegions):
         return cls(
             element_coords=np.concatenate(coords),
             texts=np.concatenate(texts),
+            ocr_texts = np.concatenate(ocr_texts),
             element_probs=np.concatenate(probs),
             element_class_ids=np.concatenate(class_ids),
             element_class_id_map={v: k for k, v in class_id_reverse_map.items()},
@@ -130,9 +135,10 @@ class LayoutElements(TextRegions):
     def iter_elements(self):
         """iter elements as one LayoutElement per iteration; this returns a generator and has less
         memory impact than the as_list method"""
-        for (x1, y1, x2, y2), text, prob, class_id, source, text_as_html, table_as_cells in zip(
+        for (x1, y1, x2, y2), text, ocr_text, prob, class_id, source, text_as_html, table_as_cells in zip(
             self.element_coords,
             self.texts,
+            self.ocr_texts,
             self.element_probs,
             self.element_class_ids,
             self.sources,
@@ -145,6 +151,7 @@ class LayoutElements(TextRegions):
                 x2,
                 y2,
                 text=text,
+                ocr_text=ocr_text,
                 type=(
                     self.element_class_id_map[class_id]
                     if class_id is not None and self.element_class_id_map
@@ -164,12 +171,13 @@ class LayoutElements(TextRegions):
         coords = np.empty((len_ele, 4), dtype=float)
         # text and probs can be Nones so use lists first then convert into array to avoid them being
         # filled as nan
-        texts, text_as_html, table_as_cells, sources, class_probs = [], [], [], [], []
+        texts, ocr_texts, text_as_html, table_as_cells, sources, class_probs = [], [], [], [], [], []
         class_types = np.empty((len_ele,), dtype="object")
 
         for i, element in enumerate(elements):
             coords[i] = [element.bbox.x1, element.bbox.y1, element.bbox.x2, element.bbox.y2]
             texts.append(element.text)
+            ocr_texts.append(element.ocr_text)
             sources.append(element.source)
             text_as_html.append(element.text_as_html)
             table_as_cells.append(element.table_as_cells)
@@ -205,6 +213,7 @@ class LayoutElement(TextRegion):
         out_dict = {
             "coordinates": None if self.bbox is None else self.bbox.coordinates,
             "text": self.text,
+            "ocr_text": self.ocr_text,
             "type": self.type,
             "prob": self.prob,
             "source": self.source,
@@ -215,10 +224,11 @@ class LayoutElement(TextRegion):
     def from_region(cls, region: TextRegion):
         """Create LayoutElement from superclass."""
         text = region.text if hasattr(region, "text") else None
+        ocr_text = region.ocr_text if hasattr(region, "ocr_text") else None
         type = region.type if hasattr(region, "type") else None
         prob = region.prob if hasattr(region, "prob") else None
         source = region.source if hasattr(region, "source") else None
-        return cls(text=text, source=source, type=type, prob=prob, bbox=region.bbox)
+        return cls(text=text, ocr_text=ocr_text, source=source, type=type, prob=prob, bbox=region.bbox)
 
 
 def merge_inferred_layout_with_extracted_layout(
@@ -282,6 +292,7 @@ def merge_inferred_layout_with_extracted_layout(
                         # keep inferred region, remove extracted region
                         grow_region_to_match_region(inferred_region.bbox, extracted_region.bbox)
                         inferred_region.text = extracted_region.text
+                        inferred_region.ocr_text = extracted_region.ocr_text
                         region_matched = True
                 elif extracted_is_subregion_of_inferred and inferred_is_text:
                     if extracted_is_image:
@@ -303,6 +314,7 @@ def merge_inferred_layout_with_extracted_layout(
     categorized_extracted_elements_to_add = [
         LayoutElement(
             text=el.text,
+            ocr_text=el.ocr_text,
             type=(
                 ElementType.IMAGE
                 if isinstance(el, ImageTextRegion)
@@ -470,7 +482,7 @@ def clean_layoutelements(elements: LayoutElements, subregion_threshold: float = 
     final_attrs: dict[str, Any] = {
         "element_class_id_map": elements.element_class_id_map,
     }
-    for attr in ("element_class_ids", "element_probs", "texts", "sources"):
+    for attr in ("element_class_ids", "element_probs", "texts", "ocr_texts", "sources"):
         if (original_attr := getattr(elements, attr)) is None:
             continue
         final_attrs[attr] = original_attr[sorted_by_area][mask][sorted_by_y1]

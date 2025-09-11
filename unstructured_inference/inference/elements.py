@@ -184,6 +184,7 @@ def coords_intersections(coords: np.ndarray) -> np.ndarray:
 class TextRegion:
     bbox: Rectangle
     text: Optional[str] = None
+    ocr_text: Optional[str] = None
     source: Optional[Source] = None
 
     def __str__(self) -> str:
@@ -197,19 +198,21 @@ class TextRegion:
         x2: Union[int, float],
         y2: Union[int, float],
         text: Optional[str] = None,
+        ocr_text: Optional[str] = None,
         source: Optional[Source] = None,
         **kwargs,
     ) -> TextRegion:
         """Constructs a region from coordinates."""
         bbox = Rectangle(x1, y1, x2, y2)
 
-        return cls(text=text, source=source, bbox=bbox, **kwargs)
+        return cls(text=text, ocr_text=ocr_text, source=source, bbox=bbox, **kwargs)
 
 
 @dataclass
 class TextRegions:
     element_coords: np.ndarray
     texts: np.ndarray = field(default_factory=lambda: np.array([]))
+    ocr_texts: np.ndarray = field(default_factory=lambda: np.array([]))
     sources: np.ndarray = field(default_factory=lambda: np.array([]))
     source: Source | None = None
 
@@ -255,14 +258,16 @@ class TextRegions:
     def from_list(cls, regions: list):
         """create TextRegions from a list of TextRegion objects; the objects must have the same
         source"""
-        coords, texts, sources = [], [], []
+        coords, texts, ocr_texts, sources = [], [], [], []
         for region in regions:
             coords.append((region.bbox.x1, region.bbox.y1, region.bbox.x2, region.bbox.y2))
+            ocr_texts.append(region.ocr_text)
             texts.append(region.text)
             sources.append(region.source)
         return cls(
             element_coords=np.array(coords),
             texts=np.array(texts),
+            ocr_texts = np.array(ocr_texts),
             sources=np.array(sources),
         )
 

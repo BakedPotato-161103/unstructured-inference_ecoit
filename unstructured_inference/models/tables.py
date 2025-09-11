@@ -24,7 +24,7 @@ from unstructured_inference.utils import pad_image_with_background_color
 
 from . import table_postprocess as postprocess
 
-DEFAULT_MODEL = "microsoft/table-transformer-structure-recognition"
+DEFAULT_MODEL = "microsoft/table-transformer-structure-recognition-v1.1-all"
 
 
 class UnstructuredTableTransformerModel(UnstructuredModel):

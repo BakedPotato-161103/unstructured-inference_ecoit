@@ -20,49 +20,23 @@ from unstructured_inference.utils import (
     download_if_needed_and_get_local_path,
 )
 
-YOLOX_LABEL_MAP = {
-    0: ElementType.CAPTION,
-    1: ElementType.FOOTNOTE,
-    2: ElementType.FORMULA,
-    3: ElementType.LIST_ITEM,
-    4: ElementType.PAGE_FOOTER,
-    5: ElementType.PAGE_HEADER,
-    6: ElementType.PICTURE,
-    7: ElementType.SECTION_HEADER,
-    8: ElementType.TABLE,
-    9: ElementType.TEXT,
-    10: ElementType.TITLE,
+PADDLE_LABEL_MAP = {
+    'figure_table title': ElementType.CAPTION,
+    'footnotes': ElementType.FOOTNOTE,
+    'formula': ElementType.FORMULA,
+    'i don\'t know': ElementType.LIST_ITEM,
+    'footer': ElementType.PAGE_FOOTER,
+    'header': ElementType.PAGE_HEADER,
+    'image': ElementType.PICTURE,
+    'paragraph title': ElementType.SECTION_HEADER,
+    'table': ElementType.TABLE,
+    'text': ElementType.TEXT,
+    'document title': ElementType.TITLE,
+    'Block': ElementType.UNCATEGORIZED_TEXT,
 }
 
-MODEL_TYPES = {
-    "yolox": LazyDict(
-        model_path=LazyEvaluateInfo(
-            download_if_needed_and_get_local_path,
-            "unstructuredio/yolo_x_layout",
-            "yolox_l0.05.onnx",
-        ),
-        label_map=YOLOX_LABEL_MAP,
-    ),
-    "yolox_tiny": LazyDict(
-        model_path=LazyEvaluateInfo(
-            download_if_needed_and_get_local_path,
-            "unstructuredio/yolo_x_layout",
-            "yolox_tiny.onnx",
-        ),
-        label_map=YOLOX_LABEL_MAP,
-    ),
-    "yolox_quantized": LazyDict(
-        model_path=LazyEvaluateInfo(
-            download_if_needed_and_get_local_path,
-            "unstructuredio/yolo_x_layout",
-            "yolox_l0.05_quantized.onnx",
-        ),
-        label_map=YOLOX_LABEL_MAP,
-    ),
-}
-
-
-class UnstructuredYoloXModel(UnstructuredObjectDetectionModel):
+# Let's say we don't have the option to use ONNX models
+class UnstructuredPPLayoutModel(UnstructuredObjectDetectionModel):
     def predict(self, x: PILImage.Image):
         """Predict using YoloX model."""
         super().predict(x)
@@ -71,17 +45,14 @@ class UnstructuredYoloXModel(UnstructuredObjectDetectionModel):
     def initialize(self, model_path: str, label_map: dict):
         """Start inference session for YoloX model."""
         self.model_path = model_path
-
         available_providers = C.get_available_providers()
         ordered_providers = [
-            
-            "CUDAExecutionProvider",
             "TensorrtExecutionProvider",
+            "CUDAExecutionProvider",
             "CPUExecutionProvider",
         ]
         providers = [provider for provider in ordered_providers if provider in available_providers]
-        print(model_path)
-        print(providers)
+
         self.model = onnxruntime.InferenceSession(
             model_path,
             providers=providers,
@@ -107,6 +78,7 @@ class UnstructuredYoloXModel(UnstructuredObjectDetectionModel):
         """
         # The model was trained and exported with this shape
         # TODO (benjamin): check other shapes for inference
+        # No, they cannot, thats why it failed :) 
         input_shape = (1024, 768)
         origin_img = np.array(image)
         img, ratio = preprocess(origin_img, input_shape)
@@ -129,10 +101,11 @@ class UnstructuredYoloXModel(UnstructuredObjectDetectionModel):
 
         # Note (Benjamin): Distinct models (quantized and original) requires distincts
         # levels of thresholds
+        # I don't know why it is fixed ? 
         if "quantized" in self.model_path:
             dets = multiclass_nms(boxes_xyxy, scores, nms_thr=0.0, score_thr=0.07)
         else:
-            dets = multiclass_nms(boxes_xyxy, scores, nms_thr=0.1, score_thr=0.25)
+            dets = multiclass_nms(boxes_xyxy, scores, nms_thr=0.1, score_thr=0.2)
 
         order = np.argsort(dets[:, 1])
         sorted_dets = dets[order]
