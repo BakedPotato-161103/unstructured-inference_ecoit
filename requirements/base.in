@@ -1,9 +1,9 @@
 -c constraints.in
 python-multipart
 huggingface-hub
-numpy
+numpy==2.0.2
 opencv-python!=4.7.0.68
-onnxruntime-gpu>=1.18.0
+onnxruntime-gpu
 matplotlib
 torch
 timm
