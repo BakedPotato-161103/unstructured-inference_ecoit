@@ -81,11 +81,11 @@ class UnstructuredPPLayoutModel(UnstructuredObjectDetectionModel):
 
     def initialize(self, model_path: str, label_map: dict = PADDLE_MAP):
         """Start inference session for YoloX model."""
+        print("Using Paddle for Layout Detection")
         self.model_path = model_path
         available_providers = C.get_available_providers()
         ordered_providers = [
             "CUDAExecutionProvider",
-            "TensorrtExecutionProvider",
             "CPUExecutionProvider",
         ]
         providers = [provider for provider in ordered_providers if provider in available_providers]
