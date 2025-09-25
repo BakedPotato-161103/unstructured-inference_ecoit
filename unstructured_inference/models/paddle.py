@@ -7,7 +7,6 @@ import os
 import cv2
 import numpy as np
 import onnxruntime
-from onnxruntime.capi import _pybind_state as C
 from PIL import Image as PILImage
 
 from unstructured_inference.constants import ElementType, Source
@@ -83,7 +82,7 @@ class UnstructuredPPLayoutModel(UnstructuredObjectDetectionModel):
         """Start inference session for YoloX model."""
         print("Using Paddle for Layout Detection")
         self.model_path = model_path
-        available_providers = C.get_available_providers()
+        available_providers = onnxruntime.get_available_providers()
         ordered_providers = [
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
