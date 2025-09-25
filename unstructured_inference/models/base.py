@@ -12,6 +12,9 @@ from unstructured_inference.models.detectron2onnx import UnstructuredDetectronON
 from unstructured_inference.models.unstructuredmodel import UnstructuredModel
 from unstructured_inference.models.yolox import MODEL_TYPES as YOLOX_MODEL_TYPES
 from unstructured_inference.models.yolox import UnstructuredYoloXModel
+
+from unstructured_inference.models.paddle import UnstructuredPPLayoutModel
+from unstructured_inference.models.paddle import MODEL_TYPES as PADDLE_MODEL_TYPES
 from unstructured_inference.utils import LazyDict
 
 DEFAULT_MODEL = "yolox"
@@ -51,8 +54,8 @@ def get_default_model_mappings() -> Tuple[
     return {
         **dict.fromkeys(DETECTRON2_ONNX_MODEL_TYPES, UnstructuredDetectronONNXModel),
         **dict.fromkeys(YOLOX_MODEL_TYPES, UnstructuredYoloXModel),
-    }, {**DETECTRON2_ONNX_MODEL_TYPES, **YOLOX_MODEL_TYPES}
-
+        **dict.fromkeys(PADDLE_MODEL_TYPES, UnstructuredPPLayoutModel)
+    }, {**DETECTRON2_ONNX_MODEL_TYPES, **YOLOX_MODEL_TYPES, **PADDLE_MODEL_TYPES}
 
 model_class_map, model_config_map = get_default_model_mappings()
 

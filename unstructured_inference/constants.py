@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class Source(Enum):
+    PADDLE = "paddle"
     YOLOX = "yolox"
     DETECTRON2_ONNX = "detectron2_onnx"
     DETECTRON2_LP = "detectron2_lp"
